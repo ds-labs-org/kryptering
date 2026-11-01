@@ -20,6 +20,7 @@ pub fn kt_encrypt(
 ) -> Result<Vec<u8>> {
     require_supported(Operation::TransportEncrypt(algorithm))?;
     let public_key = match public_key.inner() {
+        #[cfg(feature = "rustcrypto-rsa")]
         RustCryptoKey::Rsa { public, .. } => public,
         _ => return Err(Error::Key("RSA public key required".into())),
     };
@@ -45,6 +46,7 @@ pub fn kt_decrypt(
 ) -> Result<Vec<u8>> {
     require_supported(Operation::TransportDecrypt(algorithm))?;
     let private_key = match private_key.inner() {
+        #[cfg(feature = "rustcrypto-rsa")]
         RustCryptoKey::Rsa {
             private: Some(private),
             public,

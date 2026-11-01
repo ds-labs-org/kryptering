@@ -1,14 +1,30 @@
-#[cfg(not(any(feature = "rustcrypto", feature = "aws-lc")))]
+#[cfg(not(any(feature = "rustcrypto-core", feature = "aws-lc")))]
 compile_error!("select exactly one document provider: rustcrypto or aws-lc");
-#[cfg(all(feature = "rustcrypto", feature = "aws-lc"))]
+#[cfg(all(feature = "rustcrypto-core", feature = "aws-lc"))]
 compile_error!(
     "document provider features are mutually exclusive: select exactly one of rustcrypto or aws-lc"
+);
+#[cfg(all(
+    feature = "rustcrypto-core",
+    feature = "legacy",
+    not(feature = "rustcrypto-legacy")
+))]
+compile_error!(
+    "the `legacy` algorithms need their RustCrypto implementations: enable `rustcrypto-legacy` (or `rustcrypto`)"
+);
+#[cfg(all(
+    feature = "rustcrypto-core",
+    feature = "post-quantum",
+    not(feature = "rustcrypto-pq")
+))]
+compile_error!(
+    "the `post-quantum` algorithms need their RustCrypto implementations: enable `rustcrypto-pq` (or `rustcrypto`)"
 );
 #[cfg(all(feature = "tls-ring", feature = "tls-aws-lc"))]
 compile_error!(
     "TLS provider features are mutually exclusive: select at most one of tls-ring or tls-aws-lc"
 );
-#[cfg(all(feature = "fips", feature = "rustcrypto"))]
+#[cfg(all(feature = "fips", feature = "rustcrypto-core"))]
 compile_error!("fips cannot be combined with the RustCrypto document provider");
 #[cfg(all(feature = "fips", feature = "tls-ring"))]
 compile_error!("fips cannot be combined with the ring TLS provider");
@@ -23,33 +39,33 @@ compile_error!("AWS-LC requires Linux or non-FIPS macOS on x86_64/aarch64");
 
 pub mod algorithm;
 pub mod backend;
-#[cfg(feature = "rustcrypto")]
+#[cfg(feature = "rustcrypto-core")]
 pub mod digest;
-#[cfg(not(feature = "rustcrypto"))]
+#[cfg(not(feature = "rustcrypto-core"))]
 #[path = "alternate/digest.rs"]
 pub mod digest;
 mod ecdsa_encoding;
 pub mod error;
-#[cfg(feature = "rustcrypto")]
+#[cfg(feature = "rustcrypto-core")]
 pub mod hazmat;
-#[cfg(not(feature = "rustcrypto"))]
+#[cfg(not(feature = "rustcrypto-core"))]
 #[path = "alternate/hazmat.rs"]
 pub mod hazmat;
-#[cfg(feature = "rustcrypto")]
+#[cfg(feature = "rustcrypto-core")]
 pub mod kdf;
-#[cfg(not(feature = "rustcrypto"))]
+#[cfg(not(feature = "rustcrypto-core"))]
 #[path = "alternate/kdf.rs"]
 pub mod kdf;
-#[cfg(feature = "rustcrypto")]
+#[cfg(feature = "rustcrypto-core")]
 pub mod key;
-#[cfg(not(feature = "rustcrypto"))]
+#[cfg(not(feature = "rustcrypto-core"))]
 #[path = "alternate/key.rs"]
 pub mod key;
 pub mod parameters;
 pub mod pkcs12;
-#[cfg(feature = "rustcrypto")]
+#[cfg(feature = "rustcrypto-core")]
 pub mod software;
-#[cfg(not(feature = "rustcrypto"))]
+#[cfg(not(feature = "rustcrypto-core"))]
 #[path = "alternate/software.rs"]
 pub mod software;
 pub mod traits;
@@ -67,7 +83,7 @@ pub use traits::*;
 
 // Re-export software backend types.
 pub use software::cipher;
-#[cfg(all(feature = "post-quantum", feature = "rustcrypto"))]
+#[cfg(all(feature = "post-quantum", feature = "rustcrypto-core"))]
 pub use software::composite::generate_composite_ml_dsa;
 #[cfg(feature = "post-quantum")]
 pub use software::kem::{generate_ml_kem, SoftwareDecapsulator, SoftwareEncapsulator};
@@ -76,7 +92,7 @@ pub use software::keytransport;
 pub use software::keywrap;
 #[cfg(feature = "post-quantum")]
 pub use software::sign::generate_ml_dsa;
-#[cfg(feature = "rustcrypto")]
+#[cfg(feature = "rustcrypto-core")]
 pub use software::sign::{SoftwareSigner, SoftwareVerifier};
-#[cfg(not(feature = "rustcrypto"))]
+#[cfg(not(feature = "rustcrypto-core"))]
 pub use software::{SoftwareSigner, SoftwareVerifier};

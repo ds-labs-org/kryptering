@@ -27,5 +27,13 @@
 //! * Reusing the same key across this module and [`crate::cipher`]
 //!   without domain separation.
 
+#[cfg(feature = "rustcrypto-sym")]
 pub mod aes_cbc;
+#[cfg(not(feature = "rustcrypto-sym"))]
+#[path = "../disabled/aes_cbc.rs"]
+pub mod aes_cbc;
+#[cfg(feature = "rustcrypto-dh")]
+pub mod dh;
+#[cfg(not(feature = "rustcrypto-dh"))]
+#[path = "../disabled/dh.rs"]
 pub mod dh;

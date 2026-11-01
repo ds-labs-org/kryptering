@@ -20,15 +20,32 @@ default = ["rustcrypto", "pkcs11"]
 # its whole primitive dependency family so AWS-LC builds never acquire
 # RustCrypto implementations through the orthogonal legacy/PQ switches.
 rustcrypto = [
-    "dep:digest", "dep:sha1", "dep:sha2", "dep:sha3", "dep:hmac",
-    "dep:rsa", "dep:ecdsa", "dep:elliptic-curve", "dep:dsa", "dep:p256", "dep:p384", "dep:p521",
-    "dep:k256", "dep:bp256", "dep:bp384",
-    "dep:aes", "dep:cbc", "dep:aes-gcm", "dep:aes-kw", "dep:ed25519-dalek",
-    "dep:ed448-goldilocks", "dep:x448", "dep:x25519-dalek", "dep:hkdf", "dep:pbkdf2",
-    "dep:signature",
-    "dep:crypto-bigint", "dep:crypto-primes", "dep:md-5", "dep:ripemd", "dep:des", "dep:ml-dsa",
-    "dep:slh-dsa", "dep:ml-kem", "dep:pkcs8", "dep:getrandom",
+    "rustcrypto-rsa", "rustcrypto-ec", "rustcrypto-ec-extra", "rustcrypto-eddsa",
+    "rustcrypto-xdh", "rustcrypto-dh", "rustcrypto-sym", "rustcrypto-legacy", "rustcrypto-pq",
 ]
+# Finer-grained RustCrypto provider features. `rustcrypto-core` selects the
+# RustCrypto document provider (digests, HMAC, RNG, RSA, NIST-curve ECDSA);
+# each family below adds
+# one group of primitives on top. Operations of a family that is not enabled
+# are reported as unsupported by `Backend::supports` and fail with
+# `Error::UnsupportedAlgorithm` instead of being compiled in. `rustcrypto`
+# enables every family, so existing users see no change.
+rustcrypto-core = [
+    "rustcrypto-rsa", "rustcrypto-ec",
+    "dep:digest", "dep:sha1", "dep:sha2", "dep:sha3", "dep:hmac", "dep:signature", "dep:pkcs8", "dep:getrandom",
+]
+# RSA and NIST-curve ECDSA form the always-present base of `rustcrypto-core`
+# (key import/export and SPKI handling are shared by both). These two
+# features only name the crates; enable `rustcrypto-core` to get the provider.
+rustcrypto-rsa = ["dep:rsa"]
+rustcrypto-ec = ["dep:ecdsa", "dep:elliptic-curve", "dep:p256", "dep:p384", "dep:p521"]
+rustcrypto-ec-extra = ["rustcrypto-core", "dep:k256", "dep:bp256", "dep:bp384"]
+rustcrypto-eddsa = ["rustcrypto-core", "dep:ed25519-dalek", "dep:ed448-goldilocks"]
+rustcrypto-xdh = ["rustcrypto-core", "dep:x25519-dalek", "dep:x448"]
+rustcrypto-dh = ["rustcrypto-core", "dep:crypto-bigint", "dep:crypto-primes"]
+rustcrypto-sym = ["rustcrypto-core", "dep:aes", "dep:cbc", "dep:aes-gcm", "dep:aes-kw", "dep:hkdf", "dep:pbkdf2"]
+rustcrypto-legacy = ["rustcrypto-sym", "dep:md-5", "dep:ripemd", "dep:des", "dep:dsa"]
+rustcrypto-pq = ["rustcrypto-eddsa", "dep:ml-dsa", "dep:slh-dsa", "dep:ml-kem"]
 aws-lc = ["dep:aws-lc-rs"]
 legacy = []
 post-quantum = []

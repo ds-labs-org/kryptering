@@ -116,7 +116,7 @@ fn ed448_matches_rfc8032_and_is_refused_where_unsupported() {
     let expected = decode("533a37f6bbe457251f023c0d88f976ae2dfb504a843e34d2074fd823d41a591f2b233f034f628281f2fd7a22ddd47d7828c59bd0a21bfd3980ff0d2028d4b18a9df63e006c5d1c2d345b925d8dc00b4104852db99ac5c7cdda8530a113a0f4dbb61149f05a7363268c71d95808ff2e652600");
     let hmac = SoftwareKey::from_symmetric_bytes(KeyAlgorithm::Hmac, b"secret").unwrap();
 
-    if cfg!(feature = "rustcrypto") {
+    if cfg!(feature = "rustcrypto-core") {
         let private = SoftwareKey::from_pkcs8_der(KeyAlgorithm::Ed448, &pkcs8).unwrap();
         let public = SoftwareKey::from_spki_der(KeyAlgorithm::Ed448, &spki).unwrap();
         assert_eq!(private.export_spki_der().unwrap(), spki);
@@ -159,7 +159,7 @@ fn x448_agreement_matches_rfc7748_and_checks_key_type() {
     let shared = decode("07fff4181ac6cc95ec1c16a94a0f74d12da232ce40a77552281d282bb60c0b56fd2464c335543936521c24403085d59a449a5037514a879d");
     let aes = SoftwareKey::from_symmetric_bytes(KeyAlgorithm::Aes, &[7; 32]).unwrap();
 
-    if cfg!(feature = "rustcrypto") {
+    if cfg!(feature = "rustcrypto-core") {
         assert_eq!(
             kryptering::keyagreement::ecdh_x448(&bob_public, &alice_private).unwrap(),
             shared
@@ -532,7 +532,7 @@ fn rsa_keys_below_2048_bits_are_refused_when_used() {
     let algorithm = SignatureAlgorithm::RsaPkcs1v15(HashAlgorithm::Sha256);
     // The one intended difference: RustCrypto with `legacy` uses short RSA
     // keys for historical interoperability; AWS-LC never does.
-    let usable = cfg!(all(feature = "rustcrypto", feature = "legacy"));
+    let usable = cfg!(all(feature = "rustcrypto-core", feature = "legacy"));
     match private {
         Ok(private) => assert_eq!(SoftwareSigner::new(algorithm, private).is_ok(), usable),
         // AWS-LC's RSA key-pair parser itself refuses short private keys.
@@ -745,7 +745,7 @@ fn secp256k1_high_s_signature_verifies_on_every_provider() {
     } else {
         (twin, raw.clone())
     };
-    if cfg!(feature = "rustcrypto") {
+    if cfg!(feature = "rustcrypto-core") {
         assert_eq!(raw, low_s, "RustCrypto signer must emit low-S");
     }
 

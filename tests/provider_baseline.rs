@@ -523,7 +523,7 @@ fn unsupported_operations_are_reported_before_key_parsing() {
         ));
     }
 
-    #[cfg(feature = "rustcrypto")]
+    #[cfg(feature = "rustcrypto-core")]
     {
         let operation = kryptering::Operation::Pbkdf2(HashAlgorithm::Sha3_256);
         assert!(!kryptering::supports(operation).unwrap());
@@ -639,7 +639,7 @@ fn ed448_and_x448_use_neutral_key_formats_or_are_refused() {
     let x_private = decode("1c306a7ac2a0e2e0990b294470cba339e6453772b075811d8fad0d1d6927c120bb5ee8972b0d3e21374c9c921b09d1b0366f10b65173992d");
     let x_public = decode("3eb7a829b0cd20f5bcfc0b599b6feccf6da4627107bdb0d4f345b43027d8b972fc3e34fb4232a13ca706dcb57aec3dae07bdc1c67bf33609");
 
-    #[cfg(feature = "rustcrypto")]
+    #[cfg(feature = "rustcrypto-core")]
     {
         let private = SoftwareKey::from_pkcs8_der(KeyAlgorithm::Ed448, &ed_pkcs8).unwrap();
         let public = SoftwareKey::from_spki_der(KeyAlgorithm::Ed448, &ed_spki).unwrap();
@@ -753,7 +753,7 @@ fn secp256k1_signatures_and_agreement_use_neutral_key_formats() {
         assert!(vk.verify_prehash(&prehash, &sig).is_ok());
     }
 
-    #[cfg(feature = "rustcrypto")]
+    #[cfg(feature = "rustcrypto-core")]
     {
         let shared =
             kryptering::keyagreement::agree(EcCurve::Secp256k1, peer_point.as_bytes(), &key)
@@ -794,7 +794,7 @@ fn brainpool_uses_neutral_key_formats_or_is_refused() {
     let curve = KeyAlgorithm::Ec(EcCurve::BrainpoolP256r1);
     let algorithm = SignatureAlgorithm::Ecdsa(EcCurve::BrainpoolP256r1, HashAlgorithm::Sha256);
 
-    #[cfg(feature = "rustcrypto")]
+    #[cfg(feature = "rustcrypto-core")]
     {
         let key = SoftwareKey::from_pkcs8_der(curve, pkcs8.as_bytes()).unwrap();
         let spki = key.export_spki_der().unwrap();

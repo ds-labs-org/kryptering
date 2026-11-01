@@ -211,12 +211,14 @@ pub(crate) fn p256_sig_to_raw(sig: &p256::ecdsa::Signature) -> Vec<u8> {
     out
 }
 
+#[cfg(feature = "rustcrypto-ec-extra")]
 pub(crate) fn raw_to_k256_sig(input: &[u8]) -> Result<k256::ecdsa::Signature> {
     let raw = crate::ecdsa_encoding::normalize(crate::algorithm::EcCurve::Secp256k1, input)?;
     k256::ecdsa::Signature::from_slice(&raw)
         .map_err(|e| Error::Crypto(format!("invalid secp256k1 signature: {e}")))
 }
 
+#[cfg(feature = "rustcrypto-ec-extra")]
 pub(crate) fn k256_sig_to_raw(sig: &k256::ecdsa::Signature) -> Vec<u8> {
     let (r, s) = sig.split_bytes();
     let mut out = Vec::with_capacity(64);
@@ -225,12 +227,14 @@ pub(crate) fn k256_sig_to_raw(sig: &k256::ecdsa::Signature) -> Vec<u8> {
     out
 }
 
+#[cfg(feature = "rustcrypto-ec-extra")]
 pub(crate) fn raw_to_bp256_sig(input: &[u8]) -> Result<ecdsa::Signature<bp256::BrainpoolP256r1>> {
     let raw = crate::ecdsa_encoding::normalize(crate::algorithm::EcCurve::BrainpoolP256r1, input)?;
     ecdsa::Signature::from_slice(&raw)
         .map_err(|e| Error::Crypto(format!("invalid brainpoolP256r1 signature: {e}")))
 }
 
+#[cfg(feature = "rustcrypto-ec-extra")]
 pub(crate) fn bp256_sig_to_raw(sig: &ecdsa::Signature<bp256::BrainpoolP256r1>) -> Vec<u8> {
     let (r, s) = sig.split_bytes();
     let mut out = Vec::with_capacity(64);
@@ -239,12 +243,14 @@ pub(crate) fn bp256_sig_to_raw(sig: &ecdsa::Signature<bp256::BrainpoolP256r1>) -
     out
 }
 
+#[cfg(feature = "rustcrypto-ec-extra")]
 pub(crate) fn raw_to_bp384_sig(input: &[u8]) -> Result<ecdsa::Signature<bp384::BrainpoolP384r1>> {
     let raw = crate::ecdsa_encoding::normalize(crate::algorithm::EcCurve::BrainpoolP384r1, input)?;
     ecdsa::Signature::from_slice(&raw)
         .map_err(|e| Error::Crypto(format!("invalid brainpoolP384r1 signature: {e}")))
 }
 
+#[cfg(feature = "rustcrypto-ec-extra")]
 pub(crate) fn bp384_sig_to_raw(sig: &ecdsa::Signature<bp384::BrainpoolP384r1>) -> Vec<u8> {
     let (r, s) = sig.split_bytes();
     let mut out = Vec::with_capacity(96);

@@ -273,6 +273,7 @@ fn concat_kdf_inner<H: Digest + Clone>(
 /// * `key_length` must be in `1..=PBKDF2_MAX_KEY_LEN` (1 MiB).
 ///
 /// Returns `Error::Crypto` with a descriptive message on violation.
+#[cfg(feature = "rustcrypto-sym")]
 pub fn pbkdf2_derive(password: &[u8], params: &Pbkdf2Params) -> Result<Vec<u8>> {
     require_supported(Operation::Pbkdf2(params.hash))?;
     if params.salt.len() < PBKDF2_MIN_SALT_LEN {
@@ -370,6 +371,16 @@ pub fn pbkdf2_derive(password: &[u8], params: &Pbkdf2Params) -> Result<Vec<u8>> 
     Ok(derived)
 }
 
+/// Stand-in for [`pbkdf2_derive`] when the `rustcrypto-sym` family is not
+/// compiled in: always reports PBKDF2 as unsupported.
+#[cfg(not(feature = "rustcrypto-sym"))]
+pub fn pbkdf2_derive(_password: &[u8], params: &Pbkdf2Params) -> Result<Vec<u8>> {
+    Err(Error::unsupported(
+        Operation::Pbkdf2(params.hash),
+        "PBKDF2 (enable the `rustcrypto-sym` feature)",
+    ))
+}
+
 /// Derive a key using HKDF (RFC 5869: Extract-then-Expand).
 ///
 /// `shared_secret` is the input keying material (IKM).
@@ -381,6 +392,7 @@ pub fn pbkdf2_derive(password: &[u8], params: &Pbkdf2Params) -> Result<Vec<u8>> 
 /// defaulted to 16 bytes (AES-128) when both were zero — a caller who
 /// forgot to configure a length would get 128-bit key material without
 /// any warning.
+#[cfg(feature = "rustcrypto-sym")]
 pub fn hkdf_derive(shared_secret: &[u8], key_len: usize, params: &HkdfParams) -> Result<Vec<u8>> {
     require_supported(Operation::Hkdf(params.hash))?;
     // Determine output length: params override the caller's key_len.
@@ -438,6 +450,16 @@ pub fn hkdf_derive(shared_secret: &[u8], key_len: usize, params: &HkdfParams) ->
         #[cfg(feature = "legacy")]
         HashAlgorithm::Ripemd160 => hkdf_expand!(ripemd::Ripemd160),
     }
+}
+
+/// Stand-in for [`hkdf_derive`] when the `rustcrypto-sym` family is not
+/// compiled in: always reports HKDF as unsupported.
+#[cfg(not(feature = "rustcrypto-sym"))]
+pub fn hkdf_derive(_shared_secret: &[u8], _key_len: usize, params: &HkdfParams) -> Result<Vec<u8>> {
+    Err(Error::unsupported(
+        Operation::Hkdf(params.hash),
+        "HKDF (enable the `rustcrypto-sym` feature)",
+    ))
 }
 
 #[cfg(test)]

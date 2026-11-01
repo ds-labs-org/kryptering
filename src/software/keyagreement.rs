@@ -28,6 +28,7 @@ pub fn agree(
     // RustCrypto implementation) before looking at the key at all.
     require_supported(Operation::Agreement(curve))?;
     match (curve, private.inner()) {
+        #[cfg(feature = "rustcrypto-ec")]
         (
             crate::algorithm::EcCurve::P256,
             RustCryptoKey::EcP256 {
@@ -39,6 +40,7 @@ pub fn agree(
                 .map_err(|e| Error::Key(format!("P-256 private conversion failed: {e}")))?;
             ecdh_p256(peer_public, &key)
         }
+        #[cfg(feature = "rustcrypto-ec")]
         (
             crate::algorithm::EcCurve::P384,
             RustCryptoKey::EcP384 {
@@ -50,6 +52,7 @@ pub fn agree(
                 .map_err(|e| Error::Key(format!("P-384 private conversion failed: {e}")))?;
             ecdh_p384(peer_public, &key)
         }
+        #[cfg(feature = "rustcrypto-ec")]
         (
             crate::algorithm::EcCurve::P521,
             RustCryptoKey::EcP521 {
@@ -61,6 +64,7 @@ pub fn agree(
                 .map_err(|e| Error::Key(format!("P-521 private conversion failed: {e}")))?;
             ecdh_p521(peer_public, &key)
         }
+        #[cfg(feature = "rustcrypto-ec-extra")]
         (
             crate::algorithm::EcCurve::Secp256k1,
             RustCryptoKey::EcSecp256k1 {
@@ -72,6 +76,7 @@ pub fn agree(
                 .map_err(|e| Error::Key(format!("secp256k1 private conversion failed: {e}")))?;
             ecdh_secp256k1(peer_public, &key)
         }
+        #[cfg(feature = "rustcrypto-ec-extra")]
         (
             crate::algorithm::EcCurve::BrainpoolP256r1,
             RustCryptoKey::EcBrainpoolP256r1 {
@@ -84,6 +89,7 @@ pub fn agree(
             })?;
             ecdh_brainpool_p256r1(peer_public, &key)
         }
+        #[cfg(feature = "rustcrypto-ec-extra")]
         (
             crate::algorithm::EcCurve::BrainpoolP384r1,
             RustCryptoKey::EcBrainpoolP384r1 {
@@ -103,6 +109,7 @@ pub fn agree(
 }
 
 /// Compute an ECDH shared secret (x-coordinate) over brainpoolP256r1.
+#[cfg(feature = "rustcrypto-ec-extra")]
 pub fn ecdh_brainpool_p256r1(
     originator_public: &[u8],
     recipient_private: &bp256::r1::SecretKey,
@@ -121,6 +128,7 @@ pub fn ecdh_brainpool_p256r1(
 }
 
 /// Compute an ECDH shared secret (x-coordinate) over brainpoolP384r1.
+#[cfg(feature = "rustcrypto-ec-extra")]
 pub fn ecdh_brainpool_p384r1(
     originator_public: &[u8],
     recipient_private: &bp384::r1::SecretKey,
@@ -139,6 +147,7 @@ pub fn ecdh_brainpool_p384r1(
 }
 
 /// Compute an ECDH shared secret (x-coordinate) over secp256k1.
+#[cfg(feature = "rustcrypto-ec-extra")]
 pub fn ecdh_secp256k1(
     originator_public: &[u8],
     recipient_private: &k256::SecretKey,
@@ -154,8 +163,10 @@ pub fn ecdh_secp256k1(
 }
 
 /// Compute X25519 agreement using an opaque provider key.
+#[cfg(feature = "rustcrypto-xdh")]
 pub fn agree_x25519(peer_public: &[u8], private: &SoftwareKey) -> Result<Vec<u8>> {
     match private.inner() {
+        #[cfg(feature = "rustcrypto-xdh")]
         RustCryptoKey::X25519 {
             private: Some(key), ..
         } => ecdh_x25519(peer_public, key),
@@ -166,9 +177,11 @@ pub fn agree_x25519(peer_public: &[u8], private: &SoftwareKey) -> Result<Vec<u8>
 /// Compute finite-field Diffie-Hellman agreement without exporting the
 /// private exponent from the opaque key handle. Group validation is retained
 /// from import; peer and private-exponent validation still run on every call.
+#[cfg(feature = "rustcrypto-dh")]
 pub fn agree_dh(peer_public: &[u8], private: &SoftwareKey) -> Result<Vec<u8>> {
     require_supported(Operation::DhAgreement)?;
     match private.inner() {
+        #[cfg(feature = "rustcrypto-dh")]
         RustCryptoKey::Dh {
             private: Some(exponent),
             group,
@@ -235,8 +248,10 @@ pub fn ecdh_p521(originator_public: &[u8], recipient_private: &p521::SecretKey) 
 /// `private` must hold an X448 private scalar (see
 /// [`SoftwareKey::from_x448`]). Returns the 56-byte shared secret; see
 /// [`ecdh_x448`] for the low-order and all-zero rejection rules.
+#[cfg(feature = "rustcrypto-xdh")]
 pub fn agree_x448(peer_public: &[u8], private: &SoftwareKey) -> Result<Vec<u8>> {
     match private.inner() {
+        #[cfg(feature = "rustcrypto-xdh")]
         RustCryptoKey::X448 {
             private: Some(key), ..
         } => ecdh_x448(peer_public, key),
@@ -251,6 +266,7 @@ pub fn agree_x448(peer_public: &[u8], private: &SoftwareKey) -> Result<Vec<u8>> 
 /// encodings (u = 0, 1, p-1), and the output is additionally checked for
 /// the all-zero value because non-canonical encodings (u >= p) reduce to
 /// those points inside the ladder (RFC 7748 §6.2, §7).
+#[cfg(feature = "rustcrypto-xdh")]
 pub fn ecdh_x448(originator_public: &[u8], recipient_private: &[u8]) -> Result<Vec<u8>> {
     require_supported(Operation::X448Agreement)?;
     if originator_public.len() != 56 {
@@ -306,6 +322,7 @@ pub fn ecdh_x448(originator_public: &[u8], recipient_private: &[u8]) -> Result<V
 /// practice any protocol that feeds the shared secret into a KDF and then
 /// authenticates with it is subverted if the peer can pin the secret to a
 /// known value, so we perform the check unconditionally.
+#[cfg(feature = "rustcrypto-xdh")]
 pub fn ecdh_x25519(originator_public: &[u8], recipient_private: &[u8]) -> Result<Vec<u8>> {
     require_supported(Operation::X25519Agreement)?;
     if originator_public.len() != 32 {
@@ -699,4 +716,42 @@ mod tests {
         assert_eq!(ecdh_brainpool_p384r1(&q_b, &a).unwrap(), x_z);
         assert_eq!(ecdh_brainpool_p384r1(&q_a, &b).unwrap(), x_z);
     }
+}
+
+// Stubs keep the byte- and handle-level agreement API stable when a family
+// is not compiled in; they fail with `UnsupportedAlgorithm`.
+#[cfg(not(feature = "rustcrypto-xdh"))]
+pub fn agree_x25519(_peer_public: &[u8], _private: &SoftwareKey) -> Result<Vec<u8>> {
+    Err(Error::unsupported(
+        Operation::X25519Agreement,
+        "X25519 not compiled into the RustCrypto provider",
+    ))
+}
+#[cfg(not(feature = "rustcrypto-xdh"))]
+pub fn ecdh_x25519(_originator_public: &[u8], _recipient_private: &[u8]) -> Result<Vec<u8>> {
+    Err(Error::unsupported(
+        Operation::X25519Agreement,
+        "X25519 not compiled into the RustCrypto provider",
+    ))
+}
+#[cfg(not(feature = "rustcrypto-xdh"))]
+pub fn agree_x448(_peer_public: &[u8], _private: &SoftwareKey) -> Result<Vec<u8>> {
+    Err(Error::unsupported(
+        Operation::X448Agreement,
+        "X448 not compiled into the RustCrypto provider",
+    ))
+}
+#[cfg(not(feature = "rustcrypto-xdh"))]
+pub fn ecdh_x448(_originator_public: &[u8], _recipient_private: &[u8]) -> Result<Vec<u8>> {
+    Err(Error::unsupported(
+        Operation::X448Agreement,
+        "X448 not compiled into the RustCrypto provider",
+    ))
+}
+#[cfg(not(feature = "rustcrypto-dh"))]
+pub fn agree_dh(_peer_public: &[u8], _private: &SoftwareKey) -> Result<Vec<u8>> {
+    Err(Error::unsupported(
+        Operation::DhAgreement,
+        "finite-field DH not compiled into the RustCrypto provider",
+    ))
 }

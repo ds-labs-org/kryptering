@@ -89,10 +89,15 @@ impl traits::Signer for SoftwareSigner {
     fn sign(&self, data: &[u8]) -> Result<Vec<u8>> {
         let key = self.key.inner();
         match &self.algorithm {
+            #[cfg(feature = "rustcrypto-rsa")]
             SignatureAlgorithm::RsaPkcs1v15(hash) => rsa_pkcs1v15_sign(key, *hash, data),
+            #[cfg(feature = "rustcrypto-rsa")]
             SignatureAlgorithm::RsaPss(hash) => rsa_pss_sign(key, *hash, data),
+            #[cfg(feature = "rustcrypto-ec")]
             SignatureAlgorithm::Ecdsa(curve, hash) => ecdsa_sign(key, *curve, *hash, data),
+            #[cfg(feature = "rustcrypto-eddsa")]
             SignatureAlgorithm::Ed25519 => ed25519_sign(key, data),
+            #[cfg(feature = "rustcrypto-eddsa")]
             SignatureAlgorithm::Ed448 => ed448_sign(key, data),
             SignatureAlgorithm::Hmac(hash) => hmac_sign(key, *hash, data),
             #[cfg(feature = "legacy")]
@@ -109,6 +114,11 @@ impl traits::Signer for SoftwareSigner {
             SignatureAlgorithm::SlhDsa(variant) => {
                 pq_slh_dsa_sign_dispatch(key, *variant, data, &self.pq_context)
             }
+            #[allow(unreachable_patterns)]
+            _ => Err(Error::unsupported(
+                Operation::Sign(self.algorithm),
+                "signature family not compiled into the RustCrypto provider",
+            )),
         }
     }
 }
@@ -261,16 +271,21 @@ impl traits::Verifier for SoftwareVerifier {
     fn verify(&self, data: &[u8], signature: &[u8]) -> Result<bool> {
         let key = self.key.inner();
         match &self.algorithm {
+            #[cfg(feature = "rustcrypto-rsa")]
             SignatureAlgorithm::RsaPkcs1v15(hash) => {
                 rsa_pkcs1v15_verify(key, *hash, data, signature)
             }
+            #[cfg(feature = "rustcrypto-rsa")]
             SignatureAlgorithm::RsaPss(hash) => {
                 rsa_pss_verify(key, *hash, self.rsa_pss_salt_len, data, signature)
             }
+            #[cfg(feature = "rustcrypto-ec")]
             SignatureAlgorithm::Ecdsa(curve, hash) => {
                 ecdsa_verify(key, *curve, *hash, data, signature)
             }
+            #[cfg(feature = "rustcrypto-eddsa")]
             SignatureAlgorithm::Ed25519 => ed25519_verify(key, data, signature),
+            #[cfg(feature = "rustcrypto-eddsa")]
             SignatureAlgorithm::Ed448 => ed448_verify(key, data, signature),
             SignatureAlgorithm::Hmac(hash) => hmac_verify(key, *hash, data, signature),
             #[cfg(feature = "legacy")]
@@ -287,6 +302,11 @@ impl traits::Verifier for SoftwareVerifier {
             SignatureAlgorithm::SlhDsa(variant) => {
                 pq_slh_dsa_verify_dispatch(key, *variant, data, signature, &self.pq_context)
             }
+            #[allow(unreachable_patterns)]
+            _ => Err(Error::unsupported(
+                Operation::Verify(self.algorithm),
+                "signature family not compiled into the RustCrypto provider",
+            )),
         }
     }
 }
@@ -296,6 +316,7 @@ impl traits::Verifier for SoftwareVerifier {
 /// Validate that a key is suitable for signing with the given algorithm.
 fn validate_signing_key(algorithm: &SignatureAlgorithm, key: &SoftwareKey) -> Result<()> {
     match (algorithm, key) {
+        #[cfg(feature = "rustcrypto-rsa")]
         (
             SignatureAlgorithm::RsaPkcs1v15(_) | SignatureAlgorithm::RsaPss(_),
             SoftwareKey::Rsa { private, public },
@@ -305,24 +326,28 @@ fn validate_signing_key(algorithm: &SignatureAlgorithm, key: &SoftwareKey) -> Re
             }
             crate::key::enforce_rsa_min_bits(Operation::Sign(*algorithm), public)
         }
+        #[cfg(feature = "rustcrypto-ec")]
         (SignatureAlgorithm::Ecdsa(EcCurve::P256, _), SoftwareKey::EcP256 { private, .. }) => {
             if private.is_none() {
                 return Err(Error::Key("P-256 private key required for signing".into()));
             }
             Ok(())
         }
+        #[cfg(feature = "rustcrypto-ec")]
         (SignatureAlgorithm::Ecdsa(EcCurve::P384, _), SoftwareKey::EcP384 { private, .. }) => {
             if private.is_none() {
                 return Err(Error::Key("P-384 private key required for signing".into()));
             }
             Ok(())
         }
+        #[cfg(feature = "rustcrypto-ec")]
         (SignatureAlgorithm::Ecdsa(EcCurve::P521, _), SoftwareKey::EcP521 { private, .. }) => {
             if private.is_none() {
                 return Err(Error::Key("P-521 private key required for signing".into()));
             }
             Ok(())
         }
+        #[cfg(feature = "rustcrypto-ec-extra")]
         (
             SignatureAlgorithm::Ecdsa(EcCurve::Secp256k1, _),
             SoftwareKey::EcSecp256k1 { private, .. },
@@ -334,6 +359,7 @@ fn validate_signing_key(algorithm: &SignatureAlgorithm, key: &SoftwareKey) -> Re
             }
             Ok(())
         }
+        #[cfg(feature = "rustcrypto-ec-extra")]
         (
             SignatureAlgorithm::Ecdsa(EcCurve::BrainpoolP256r1, _),
             SoftwareKey::EcBrainpoolP256r1 { private, .. },
@@ -345,6 +371,7 @@ fn validate_signing_key(algorithm: &SignatureAlgorithm, key: &SoftwareKey) -> Re
             }
             Ok(())
         }
+        #[cfg(feature = "rustcrypto-ec-extra")]
         (
             SignatureAlgorithm::Ecdsa(EcCurve::BrainpoolP384r1, _),
             SoftwareKey::EcBrainpoolP384r1 { private, .. },
@@ -356,6 +383,7 @@ fn validate_signing_key(algorithm: &SignatureAlgorithm, key: &SoftwareKey) -> Re
             }
             Ok(())
         }
+        #[cfg(feature = "rustcrypto-eddsa")]
         (SignatureAlgorithm::Ed25519, SoftwareKey::Ed25519 { private, .. }) => {
             if private.is_none() {
                 return Err(Error::Key(
@@ -364,6 +392,7 @@ fn validate_signing_key(algorithm: &SignatureAlgorithm, key: &SoftwareKey) -> Re
             }
             Ok(())
         }
+        #[cfg(feature = "rustcrypto-eddsa")]
         (SignatureAlgorithm::Ed448, SoftwareKey::Ed448 { private, .. }) => {
             if private.is_none() {
                 return Err(Error::Key("Ed448 private key required for signing".into()));
@@ -468,16 +497,22 @@ fn validate_signing_key(algorithm: &SignatureAlgorithm, key: &SoftwareKey) -> Re
 /// Validate that a key is suitable for verifying with the given algorithm.
 fn validate_verifying_key(algorithm: &SignatureAlgorithm, key: &SoftwareKey) -> Result<()> {
     match (algorithm, key) {
+        #[cfg(feature = "rustcrypto-rsa")]
         (
             SignatureAlgorithm::RsaPkcs1v15(_) | SignatureAlgorithm::RsaPss(_),
             SoftwareKey::Rsa { public, .. },
         ) => crate::key::enforce_rsa_min_bits(Operation::Verify(*algorithm), public),
+        #[cfg(feature = "rustcrypto-ec")]
         (SignatureAlgorithm::Ecdsa(EcCurve::P256, _), SoftwareKey::EcP256 { .. }) => Ok(()),
+        #[cfg(feature = "rustcrypto-ec")]
         (SignatureAlgorithm::Ecdsa(EcCurve::P384, _), SoftwareKey::EcP384 { .. }) => Ok(()),
+        #[cfg(feature = "rustcrypto-ec")]
         (SignatureAlgorithm::Ecdsa(EcCurve::P521, _), SoftwareKey::EcP521 { .. }) => Ok(()),
+        #[cfg(feature = "rustcrypto-ec-extra")]
         (SignatureAlgorithm::Ecdsa(EcCurve::Secp256k1, _), SoftwareKey::EcSecp256k1 { .. }) => {
             Ok(())
         }
+        #[cfg(feature = "rustcrypto-ec-extra")]
         (
             SignatureAlgorithm::Ecdsa(EcCurve::BrainpoolP256r1, _),
             SoftwareKey::EcBrainpoolP256r1 { .. },
@@ -486,7 +521,9 @@ fn validate_verifying_key(algorithm: &SignatureAlgorithm, key: &SoftwareKey) -> 
             SignatureAlgorithm::Ecdsa(EcCurve::BrainpoolP384r1, _),
             SoftwareKey::EcBrainpoolP384r1 { .. },
         ) => Ok(()),
+        #[cfg(feature = "rustcrypto-eddsa")]
         (SignatureAlgorithm::Ed25519, SoftwareKey::Ed25519 { .. }) => Ok(()),
+        #[cfg(feature = "rustcrypto-eddsa")]
         (SignatureAlgorithm::Ed448, SoftwareKey::Ed448 { .. }) => Ok(()),
         (SignatureAlgorithm::Hmac(_), SoftwareKey::Hmac(key_bytes)) => {
             if key_bytes.is_empty() {
@@ -660,6 +697,7 @@ fn rsa_pss_max_salt_len(public_key: &rsa::RsaPublicKey, hash: HashAlgorithm) -> 
 /// Extract the RSA public key from a `SoftwareKey::Rsa`.
 fn extract_rsa_public(key: &SoftwareKey) -> Result<&rsa::RsaPublicKey> {
     match key {
+        #[cfg(feature = "rustcrypto-rsa")]
         SoftwareKey::Rsa { public, .. } => Ok(public),
         _ => Err(Error::Key("RSA key required".into())),
     }
@@ -676,6 +714,7 @@ fn ecdsa_sign(
     use signature::hazmat::PrehashSigner;
     let raw_hash = digest::digest(hash, data)?;
     match (curve, key) {
+        #[cfg(feature = "rustcrypto-ec")]
         (
             EcCurve::P256,
             SoftwareKey::EcP256 {
@@ -688,6 +727,7 @@ fn ecdsa_sign(
                 .map_err(|e| Error::Crypto(format!("ECDSA P-256 sign: {e}")))?;
             Ok(digest::p256_sig_to_raw(&sig))
         }
+        #[cfg(feature = "rustcrypto-ec")]
         (
             EcCurve::P384,
             SoftwareKey::EcP384 {
@@ -700,6 +740,7 @@ fn ecdsa_sign(
                 .map_err(|e| Error::Crypto(format!("ECDSA P-384 sign: {e}")))?;
             Ok(digest::p384_sig_to_raw(&sig))
         }
+        #[cfg(feature = "rustcrypto-ec")]
         (
             EcCurve::P521,
             SoftwareKey::EcP521 {
@@ -712,6 +753,7 @@ fn ecdsa_sign(
                 .map_err(|e| Error::Crypto(format!("ECDSA P-521 sign: {e}")))?;
             Ok(digest::p521_sig_to_raw(&sig))
         }
+        #[cfg(feature = "rustcrypto-ec-extra")]
         (
             EcCurve::Secp256k1,
             SoftwareKey::EcSecp256k1 {
@@ -725,6 +767,7 @@ fn ecdsa_sign(
                 .map_err(|e| Error::Crypto(format!("ECDSA secp256k1 sign: {e}")))?;
             Ok(digest::k256_sig_to_raw(&sig))
         }
+        #[cfg(feature = "rustcrypto-ec-extra")]
         (
             EcCurve::BrainpoolP256r1,
             SoftwareKey::EcBrainpoolP256r1 {
@@ -737,6 +780,7 @@ fn ecdsa_sign(
                 .map_err(|e| Error::Crypto(format!("ECDSA brainpoolP256r1 sign: {e}")))?;
             Ok(digest::bp256_sig_to_raw(&sig))
         }
+        #[cfg(feature = "rustcrypto-ec-extra")]
         (
             EcCurve::BrainpoolP384r1,
             SoftwareKey::EcBrainpoolP384r1 {
@@ -765,6 +809,7 @@ fn ecdsa_verify(
     use signature::hazmat::PrehashVerifier;
     let raw_hash = digest::digest(hash, data)?;
     match (curve, key) {
+        #[cfg(feature = "rustcrypto-ec")]
         (
             EcCurve::P256,
             SoftwareKey::EcP256 {
@@ -775,11 +820,13 @@ fn ecdsa_verify(
             let sig = digest::raw_to_p256_sig(sig_bytes)?;
             Ok(sk.verifying_key().verify_prehash(&prehash, &sig).is_ok())
         }
+        #[cfg(feature = "rustcrypto-ec")]
         (EcCurve::P256, SoftwareKey::EcP256 { public, .. }) => {
             let prehash = digest::pad_prehash(&raw_hash, 32);
             let sig = digest::raw_to_p256_sig(sig_bytes)?;
             Ok(public.verify_prehash(&prehash, &sig).is_ok())
         }
+        #[cfg(feature = "rustcrypto-ec")]
         (
             EcCurve::P384,
             SoftwareKey::EcP384 {
@@ -790,11 +837,13 @@ fn ecdsa_verify(
             let sig = digest::raw_to_p384_sig(sig_bytes)?;
             Ok(sk.verifying_key().verify_prehash(&prehash, &sig).is_ok())
         }
+        #[cfg(feature = "rustcrypto-ec")]
         (EcCurve::P384, SoftwareKey::EcP384 { public, .. }) => {
             let prehash = digest::pad_prehash(&raw_hash, 48);
             let sig = digest::raw_to_p384_sig(sig_bytes)?;
             Ok(public.verify_prehash(&prehash, &sig).is_ok())
         }
+        #[cfg(feature = "rustcrypto-ec-extra")]
         (EcCurve::Secp256k1, SoftwareKey::EcSecp256k1 { private, public }) => {
             let prehash = digest::pad_prehash(&raw_hash, 32);
             // ecdsa 0.17 rejects high-S signatures for NORMALIZE_S curves
@@ -805,18 +854,21 @@ fn ecdsa_verify(
             let public = private.as_ref().map_or(*public, |sk| *sk.verifying_key());
             Ok(public.verify_prehash(&prehash, &sig).is_ok())
         }
+        #[cfg(feature = "rustcrypto-ec-extra")]
         (EcCurve::BrainpoolP256r1, SoftwareKey::EcBrainpoolP256r1 { private, public }) => {
             let prehash = digest::pad_prehash(&raw_hash, 32);
             let sig = digest::raw_to_bp256_sig(sig_bytes)?;
             let public = private.as_ref().map_or(*public, |sk| *sk.verifying_key());
             Ok(public.verify_prehash(&prehash, &sig).is_ok())
         }
+        #[cfg(feature = "rustcrypto-ec-extra")]
         (EcCurve::BrainpoolP384r1, SoftwareKey::EcBrainpoolP384r1 { private, public }) => {
             let prehash = digest::pad_prehash(&raw_hash, 48);
             let sig = digest::raw_to_bp384_sig(sig_bytes)?;
             let public = private.as_ref().map_or(*public, |sk| *sk.verifying_key());
             Ok(public.verify_prehash(&prehash, &sig).is_ok())
         }
+        #[cfg(feature = "rustcrypto-ec")]
         (
             EcCurve::P521,
             SoftwareKey::EcP521 {
@@ -828,6 +880,7 @@ fn ecdsa_verify(
             let vk = p521::ecdsa::VerifyingKey::from(sk);
             Ok(vk.verify_prehash(&prehash, &sig).is_ok())
         }
+        #[cfg(feature = "rustcrypto-ec")]
         (EcCurve::P521, SoftwareKey::EcP521 { public, .. }) => {
             let prehash = digest::pad_prehash(&raw_hash, 66);
             let sig = digest::raw_to_p521_sig(sig_bytes)?;
@@ -841,6 +894,7 @@ fn ecdsa_verify(
 
 // ── Ed25519 ─────────────────────────────────────────────────────────
 
+#[cfg(feature = "rustcrypto-eddsa")]
 fn ed25519_sign(key: &SoftwareKey, data: &[u8]) -> Result<Vec<u8>> {
     use ed25519_dalek::Signer;
     let SoftwareKey::Ed25519 {
@@ -853,11 +907,14 @@ fn ed25519_sign(key: &SoftwareKey, data: &[u8]) -> Result<Vec<u8>> {
     Ok(sig.to_bytes().to_vec())
 }
 
+#[cfg(feature = "rustcrypto-eddsa")]
 fn ed25519_verify(key: &SoftwareKey, data: &[u8], sig_bytes: &[u8]) -> Result<bool> {
     let vk = match key {
+        #[cfg(feature = "rustcrypto-eddsa")]
         SoftwareKey::Ed25519 {
             private: Some(sk), ..
         } => sk.verifying_key(),
+        #[cfg(feature = "rustcrypto-eddsa")]
         SoftwareKey::Ed25519 { public, .. } => *public,
         _ => return Err(Error::Key("Ed25519 key required".into())),
     };
@@ -876,6 +933,7 @@ fn ed25519_verify(key: &SoftwareKey, data: &[u8], sig_bytes: &[u8]) -> Result<bo
 // ── Ed448 ───────────────────────────────────────────────────────────
 
 /// Pure Ed448 (RFC 8032 §5.2.6) with the empty context string; 114 bytes.
+#[cfg(feature = "rustcrypto-eddsa")]
 fn ed448_sign(key: &SoftwareKey, data: &[u8]) -> Result<Vec<u8>> {
     let SoftwareKey::Ed448 {
         private: Some(sk), ..
@@ -886,11 +944,14 @@ fn ed448_sign(key: &SoftwareKey, data: &[u8]) -> Result<Vec<u8>> {
     Ok(sk.sign_raw(data).to_bytes().to_vec())
 }
 
+#[cfg(feature = "rustcrypto-eddsa")]
 fn ed448_verify(key: &SoftwareKey, data: &[u8], sig_bytes: &[u8]) -> Result<bool> {
     let vk = match key {
+        #[cfg(feature = "rustcrypto-eddsa")]
         SoftwareKey::Ed448 {
             private: Some(sk), ..
         } => sk.verifying_key(),
+        #[cfg(feature = "rustcrypto-eddsa")]
         SoftwareKey::Ed448 { public, .. } => *public,
         _ => return Err(Error::Key("Ed448 key required".into())),
     };

@@ -561,7 +561,7 @@ fn operation_is_fips_approved(operation: Operation) -> bool {
 }
 
 /// Curves the RustCrypto provider has an arithmetic implementation for.
-#[cfg(feature = "rustcrypto")]
+#[cfg(feature = "rustcrypto-core")]
 fn rustcrypto_curve_implemented(curve: crate::algorithm::EcCurve) -> bool {
     use crate::algorithm::EcCurve;
     // brainpoolP512r1 has no RustCrypto implementation (PKCS#11 only).
@@ -576,7 +576,54 @@ fn rustcrypto_curve_implemented(curve: crate::algorithm::EcCurve) -> bool {
     )
 }
 
-#[cfg(feature = "rustcrypto")]
+/// Whether the RustCrypto primitive family an operation needs was compiled in
+/// (`rustcrypto-rsa`, `rustcrypto-ec`, ...). Digests, HMAC, ConcatKDF, the
+/// PKCS#12 KDF and randomness are always available with `rustcrypto-core`.
+#[cfg(feature = "rustcrypto-core")]
+fn rustcrypto_family_enabled(operation: Operation) -> bool {
+    use crate::algorithm::EcCurve;
+    let nist = |curve: EcCurve| matches!(curve, EcCurve::P256 | EcCurve::P384 | EcCurve::P521);
+    let ec = |curve: EcCurve| nist(curve) || cfg!(feature = "rustcrypto-ec-extra");
+    #[allow(unreachable_patterns)]
+    match operation {
+        Operation::KeyImport(key) | Operation::KeyExport(key) => match key {
+            KeyAlgorithm::Rsa => cfg!(feature = "rustcrypto-rsa"),
+            KeyAlgorithm::Ec(curve) => ec(curve),
+            KeyAlgorithm::Ed25519 | KeyAlgorithm::Ed448 => cfg!(feature = "rustcrypto-eddsa"),
+            KeyAlgorithm::X25519 | KeyAlgorithm::X448 => cfg!(feature = "rustcrypto-xdh"),
+            KeyAlgorithm::Dh => cfg!(feature = "rustcrypto-dh"),
+            KeyAlgorithm::Aes => cfg!(feature = "rustcrypto-sym"),
+            KeyAlgorithm::Dsa | KeyAlgorithm::TripleDes => cfg!(feature = "rustcrypto-legacy"),
+            _ => true,
+        },
+        Operation::Sign(algorithm) | Operation::Verify(algorithm) => match algorithm {
+            SignatureAlgorithm::RsaPkcs1v15(_) | SignatureAlgorithm::RsaPss(_) => {
+                cfg!(feature = "rustcrypto-rsa")
+            }
+            SignatureAlgorithm::Ecdsa(curve, _) => ec(curve),
+            SignatureAlgorithm::Ed25519 | SignatureAlgorithm::Ed448 => {
+                cfg!(feature = "rustcrypto-eddsa")
+            }
+            _ => true,
+        },
+        Operation::Encrypt(_)
+        | Operation::Decrypt(_)
+        | Operation::Wrap(_)
+        | Operation::Unwrap(_) => {
+            cfg!(feature = "rustcrypto-sym")
+        }
+        Operation::Pbkdf2(_) | Operation::Hkdf(_) => cfg!(feature = "rustcrypto-sym"),
+        Operation::TransportEncrypt(_) | Operation::TransportDecrypt(_) => {
+            cfg!(feature = "rustcrypto-rsa")
+        }
+        Operation::Agreement(curve) => ec(curve),
+        Operation::X25519Agreement | Operation::X448Agreement => cfg!(feature = "rustcrypto-xdh"),
+        Operation::DhAgreement => cfg!(feature = "rustcrypto-dh"),
+        _ => true,
+    }
+}
+
+#[cfg(feature = "rustcrypto-core")]
 fn rustcrypto_supports(operation: Operation) -> bool {
     let is_unimplemented_curve = match operation {
         Operation::KeyImport(KeyAlgorithm::Ec(curve))
@@ -602,6 +649,7 @@ fn rustcrypto_supports(operation: Operation) -> bool {
     );
     let is_unsupported_pkcs12 = matches!(operation, Operation::Pkcs12Kdf(hash) if !matches!(hash, HashAlgorithm::Sha1 | HashAlgorithm::Sha256));
     (!is_legacy_key || cfg!(feature = "legacy"))
+        && rustcrypto_family_enabled(operation)
         && !is_unimplemented_curve
         && !is_unsupported_pbkdf2
         && !is_unsupported_pkcs12
@@ -814,11 +862,11 @@ mod compile_time_provider {
         fn fill_random(output: &mut [u8]) -> Result<()>;
     }
 
-    #[cfg(feature = "rustcrypto")]
+    #[cfg(feature = "rustcrypto-core")]
     pub(super) struct RustCrypto;
-    #[cfg(feature = "rustcrypto")]
+    #[cfg(feature = "rustcrypto-core")]
     impl sealed::Sealed for RustCrypto {}
-    #[cfg(feature = "rustcrypto")]
+    #[cfg(feature = "rustcrypto-core")]
     impl Provider for RustCrypto {
         const ID: BackendId = BackendId::RustCrypto;
 
@@ -866,9 +914,9 @@ mod compile_time_provider {
         }
     }
 
-    #[cfg(feature = "rustcrypto")]
+    #[cfg(feature = "rustcrypto-core")]
     pub(super) type SelectedProvider = RustCrypto;
-    #[cfg(all(not(feature = "rustcrypto"), feature = "aws-lc"))]
+    #[cfg(all(not(feature = "rustcrypto-core"), feature = "aws-lc"))]
     pub(super) type SelectedProvider = AwsLc;
 }
 
