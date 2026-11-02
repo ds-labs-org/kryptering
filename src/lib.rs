@@ -20,8 +20,6 @@ compile_error!(
 compile_error!(
     "the `post-quantum` algorithms need their RustCrypto implementations: enable `rustcrypto-pq` (or `rustcrypto`)"
 );
-#[cfg(all(feature = "rsa-verify-2032", feature = "aws-lc"))]
-compile_error!("rsa-verify-2032 is only implemented by the RustCrypto provider");
 #[cfg(all(feature = "tls-ring", feature = "tls-aws-lc"))]
 compile_error!(
     "TLS provider features are mutually exclusive: select at most one of tls-ring or tls-aws-lc"

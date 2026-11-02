@@ -972,31 +972,13 @@ pub(crate) fn enforce_rsa_min_bits(operation: Operation, public: &rsa::RsaPublic
         return Ok(());
     }
     let bits = public.n().bits() as usize;
-    let min_bits = min_rsa_bits(operation);
-    if bits < min_bits {
+    if bits < MIN_RSA_BITS {
         return Err(Error::unsupported(
             operation,
-            format!("{bits}-bit RSA key (kryptering requires at least {min_bits} bits)"),
+            format!("{bits}-bit RSA key (kryptering requires at least {MIN_RSA_BITS} bits)"),
         ));
     }
     Ok(())
-}
-
-/// Smallest RSA modulus accepted for signature *verification* with the
-/// `rsa-verify-2032` feature. Some EU trusted lists (Norway's, in 2026) are
-/// still signed with a 2032-bit key. Signing, key transport and anything
-/// below 2032 bits keep the regular floor. Meant to be dropped once those
-/// signers rotate to 2048-bit or larger keys.
-pub(crate) const MIN_RSA_VERIFY_BITS_RELAXED: usize = 2032;
-
-/// RSA floor for `operation`: [`MIN_RSA_BITS`], except that verification is
-/// relaxed to [`MIN_RSA_VERIFY_BITS_RELAXED`] with `rsa-verify-2032`.
-pub(crate) fn min_rsa_bits(operation: Operation) -> usize {
-    if cfg!(feature = "rsa-verify-2032") && matches!(operation, Operation::Verify(_)) {
-        MIN_RSA_VERIFY_BITS_RELAXED
-    } else {
-        MIN_RSA_BITS
-    }
 }
 
 impl From<RustCryptoKey> for SoftwareKey {
@@ -1044,19 +1026,6 @@ mod tests {
         let spki = private.to_public_key().to_public_key_der().unwrap();
         assert!(SoftwareKey::from_pkcs8_der(KeyAlgorithm::Rsa, pkcs8.as_bytes()).is_ok());
         assert!(SoftwareKey::from_spki_der(KeyAlgorithm::Rsa, spki.as_bytes()).is_ok());
-    }
-
-    #[test]
-    fn rsa_floor_is_only_relaxed_for_verification_with_rsa_verify_2032() {
-        use crate::algorithm::{HashAlgorithm, SignatureAlgorithm};
-        let alg = SignatureAlgorithm::RsaPkcs1v15(HashAlgorithm::Sha256);
-        let verify = min_rsa_bits(Operation::Verify(alg));
-        assert_eq!(min_rsa_bits(Operation::Sign(alg)), MIN_RSA_BITS);
-        if cfg!(feature = "rsa-verify-2032") {
-            assert_eq!(verify, 2032);
-        } else {
-            assert_eq!(verify, MIN_RSA_BITS);
-        }
     }
 
     #[cfg(feature = "post-quantum")]

@@ -48,10 +48,6 @@ rustcrypto-legacy = ["rustcrypto-sym", "dep:md-5", "dep:ripemd", "dep:des", "dep
 rustcrypto-pq = ["rustcrypto-eddsa", "dep:ml-dsa", "dep:slh-dsa", "dep:ml-kem"]
 aws-lc = ["dep:aws-lc-rs"]
 legacy = []
-# Accept 2032-bit RSA keys for signature verification only (RustCrypto
-# provider). Needed for EU trusted lists still signed with such keys; see
-# https://github.com/ds-labs-org/ds-trusted-issuers-registry-rs/issues/15.
-rsa-verify-2032 = []
 post-quantum = []
 pkcs11 = ["dep:cryptoki"]
 tls-ring = ["dep:rustls", "rustls/ring"]
